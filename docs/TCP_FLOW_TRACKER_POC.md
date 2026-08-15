@@ -3,8 +3,8 @@
 ## Objective
 
 Prove that the Xray dispatcher can expose one logical TCP flow after its final
-outbound handler is selected, without using Android socket-table inference or
-copying another client's implementation.
+outbound handler is selected, without using operating-system socket-table
+inference or copying another client's implementation.
 
 ## Implemented contract
 
@@ -141,8 +141,8 @@ per-flow enabled cost is bounded in absolute terms, and steady-state byte
 accounting adds no allocation count but has measurable CPU overhead. This
 decision does not promote the snapshot shape to a stable API. The synthetic
 benchmark reports aggregate throughput rather than tail latency and does not
-cover future snapshot polling, event delivery, Android, live-network, or
-production behavior.
+cover future external core API delivery, live-network behavior, or published
+core artifacts.
 
 ## Known limits
 
@@ -179,8 +179,8 @@ production behavior.
   is closed; timeout/recovery policy is outside this PoC.
 - There is no protobuf/gRPC/REST API, subscription stream, persistence, redaction
   policy, or production retention configuration.
-- No versioned external core API or platform artifact currently consumes this
-  inspector.
+- No versioned external core API or published core artifact currently consumes
+  this inspector.
 - Snapshot polling contention and tail latency are not benchmarked because no
   external snapshot/event delivery contract exists yet.
 
@@ -188,7 +188,9 @@ production behavior.
 
 Before this becomes a stable MXR Core contract, continue in this order:
 
-1. versioned external snapshots/events, bounded delivery, retention, redaction,
-   and authorization;
-2. identifiers across core restarts and multiple core instances;
-3. Android integration and physical-device behavior.
+1. a versioned external core snapshots/events API with bounded delivery,
+   retention, redaction, and authorization;
+2. a narrow versioned core embedding boundary and reproducible core
+   library/binary artifacts;
+3. core threat modeling, MPL notices, provenance, SBOM, signing, and release
+   validation.

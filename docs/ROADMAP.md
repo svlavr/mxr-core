@@ -29,10 +29,10 @@ items are not implied authorization for implementation.
 
 ## Next only after PoC acceptance
 
-- [ ] Define a versioned external event/snapshot contract.
+- [ ] Define a versioned external core event/snapshot API.
 - [ ] Specify retention, backpressure, redaction, and authorization.
-- [ ] Design the Android consumer boundary without importing external
-  application code.
+- [ ] Define the supported core embedding boundary and reproducible core
+  library/binary artifacts.
 
 ## Publication gate
 
@@ -42,5 +42,5 @@ items are not implied authorization for implementation.
 - [x] Enable and verify branch protection.
 - [x] Verify CI, dependency/security settings, notices, and repository permissions.
 - [ ] Add release provenance before publishing any binary.
-- [ ] Complete Android, Play policy, privacy, signing, and release validation
-  before making any Google Play readiness claim.
+- [ ] Complete MPL notices, SBOM, signing, and reproducible release validation
+  before publishing any core library or binary.
