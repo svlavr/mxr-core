@@ -1,5 +1,18 @@
-# Security Policy
+# Security policy
 
-If you found an issue related to security vulnerability or protocol-identification problem, please report it to us via "[Report a vulnerability](https://github.com/XTLS/Xray-core/security/advisories/new)" privately, instead of publish it publicly before we release the fixed version.
+## Reporting a vulnerability
 
-Thanks for your contribution to the FREE Internet!
+Report suspected vulnerabilities through
+[GitHub private vulnerability reporting](https://github.com/svlavr/mxr-core/security/advisories/new).
+Do not publish exploit details, credentials, live endpoints, captures, or an
+unfixed vulnerability in a public issue or discussion.
+
+Include the affected commit, configuration boundary, reproduction steps, impact,
+and whether the behavior also exists in the unmodified upstream baseline. Reports
+are triaged for the fork first. Confirmed issues inherited from upstream may then
+be coordinated privately with the upstream maintainers.
+
+## Supported versions
+
+Only the current `main` branch is reviewed. The repository is experimental and
+does not currently publish supported binaries or production releases.
