@@ -1,46 +1,47 @@
 # Fork roadmap
 
-This is the only active queue for this repository. Items are ordered; later
-items are not implied authorization for implementation.
+This is the only active queue for MXR Core. Completed evidence belongs in the
+owning technical document; external implementations belong in the donor
+register and do not become roadmap items automatically.
 
-## Active: TCP flow tracker PoC
+## Verified foundation
 
-- [x] Clone official latest `main` and record exact baseline.
-- [x] Track one routed TCP flow after final outbound selection.
-- [x] Expose source, destination, final outbound, logical bytes, and close state.
-- [x] Add focused dispatcher tests.
-- [x] Pass race test and complete adversarial review on current bytes.
-- [x] Close exactly once with `completed`, `cancelled`, or `failed` after the
-  synchronous handler returns; preserve final counters and upstream error
-  feedback for ordinary completion, reported failure, and cooperative context
-  cancellation.
-- [x] Test default fallback, routed selection, forced-tag precedence, and
-  missing routed/forced handlers as a separate detour slice.
-- [x] Keep each dispatcher flow active through its logical mux session cleanup
-  while leaving the shared physical mux worker outside flow identity/lifecycle.
-- [x] Attribute an abnormal physical mux-worker termination to every
-  still-active logical session as `failed`, treat explicit administrative
-  worker close as `cancelled`, preserve normal logical completion, and honor
-  the protocol's remote `OptionError`; the first terminal session event wins.
-- [x] Benchmark native-pipe lifecycle CPU, allocations, and lock contention
-  under concurrent TCP load, plus steady-state uplink/downlink accounting.
-- [x] Keep the opt-in in-process experiment. This is not promotion to a stable
-  external API or production-ready contract.
+- [x] Clone the official upstream `main` and record the exact baseline commit.
+- [x] Implement the opt-in TCP flow tracker after final outbound selection.
+- [x] Cover completion, failure, cancellation, detours, logical MUX lifecycle,
+  exact final counters, concurrency, and retained-history benchmarks.
+- [x] Keep the tracker disabled by default and accept it as an internal `KEEP`
+  experiment, not a stable public contract.
+- [x] Publish the public repository with MPL-2.0 notices, protected `main`, and
+  required Linux, race, and Windows checks.
 
-## Next only after PoC acceptance
+The implemented behavior, measurements, and remaining limitations are recorded
+in `TCP_FLOW_TRACKER_POC.md`.
 
-- [ ] Define a versioned external core event/snapshot API.
-- [ ] Specify retention, backpressure, redaction, and authorization.
-- [ ] Define the supported core embedding boundary and reproducible core
-  library/binary artifacts.
+## Active next gate: external inspection contract
 
-## Publication gate
+Do not add transport or binding code until this contract is accepted. Define:
 
-- [x] Choose GitHub owner and public visibility.
-- [x] Create the public `origin` repository.
-- [x] Publish the initial `main`.
-- [x] Enable and verify branch protection.
-- [x] Verify CI, dependency/security settings, notices, and repository permissions.
-- [ ] Add release provenance before publishing any binary.
-- [ ] Complete MPL notices, SBOM, signing, and reproducible release validation
-  before publishing any core library or binary.
+- a versioned core-owned snapshot/event model and its compatibility rule;
+- ordering through sequence numbers, gap reporting, and snapshot watermarks;
+- bounded retention, queue limits, overflow behavior, and reconnection;
+- authorization plus source/destination redaction before data leaves the core;
+- clear/reset semantics and identifier lifetime across core restarts;
+- benchmark gates for polling, delivery contention, allocations, and tail
+  latency.
+
+Acceptance requires an API proposal, concurrency tests, privacy boundaries, and
+measured overhead. The existing in-process inspector remains unchanged until
+those items are reviewed together.
+
+## Later gates
+
+1. Define the smallest versioned core embedding API and reproducible
+   library/binary artifacts, including build provenance and shutdown tests.
+2. Make broader upstream integration validation deterministic by controlling
+   geodata and live-network dependencies.
+3. Complete the core threat model, MPL corresponding-source review, SBOM,
+   signing, reproducible release, rollback, and release acceptance gates.
+
+This repository is limited to core runtime behavior, core APIs, and core
+artifacts.

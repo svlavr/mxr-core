@@ -110,11 +110,11 @@ On 2026-08-15 with Go 1.26.0 on Windows:
   times — passed;
 - `go test -run '^$' -bench '^BenchmarkRoutedDispatchTCPFlowTracking$' -benchmem -benchtime=500ms -count=5 '-cpu=1,8' ./app/dispatcher` — passed;
 - `go test -run '^$' -bench '^BenchmarkTCPFlowPipeByteAccounting$' -benchmem -benchtime=1s -count=5 '-cpu=2' ./app/dispatcher` — passed;
-- `go test ./...` — not green on the clean upstream baseline environment:
-  DNS integration expected an external response, and geodata tests could not
-  find `resources/geoip.dat` and `resources/geosite.dat`; the remaining hung
-  integration process was stopped after those failures. These failures did not
-  occur in the changed target packages.
+- `go test -timeout 90s ./...` — not green on the clean upstream baseline
+  environment: geodata tests could not find `resources/geoip.dat` and
+  `resources/geosite.dat`, TLS integration received an external HTTP EOF, and a
+  finalmask/sudoku integration package timed out. These failures did not occur
+  in the changed target packages.
 
 ## Benchmark result and PoC decision
 

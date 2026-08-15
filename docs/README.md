@@ -1,13 +1,23 @@
 # MXR Core documentation
 
-- `FORK_BASELINE.md` — official upstream URL, exact SHA, date, license, and
-  baseline update rule.
-- `TCP_FLOW_TRACKER_POC.md` — implemented contract, tests, limits, and promotion
-  gates for the first fork experiment.
-- `UPSTREAM_SYNC.md` — safe fetch/synchronization workflow and expected conflict
+## Project control
+
+- `ROADMAP.md` — the only active ordered queue.
+- `FORK_BASELINE.md` — official upstream URL, exact commit, verification date,
+  license, and baseline update rule.
+- `UPSTREAM_SYNC.md` — safe synchronization procedure and the current conflict
   surface.
-- `ROADMAP.md` — the only active ordered queue for this repository.
-- `ANDROID_VALIDATION.md` — evidence boundaries for a future Android core
-  library or binding.
-- `PROJECT_SETUP_GAPS.md` — repository, CI, core API, security, and publication
-  infrastructure still required.
+
+## Implemented extension
+
+- `TCP_FLOW_TRACKER_POC.md` — the implemented tracker contract, tests,
+  benchmarks, limitations, and promotion gates.
+
+## Evidence
+
+- `DONOR_PATCH_REGISTER.md` — exact external implementations inspected for
+  possible bounded core patches. Entries are evidence, not authorization.
+
+There are no second roadmaps or historical plans in this directory. Completed
+results stay in their owning technical document; future work stays in
+`ROADMAP.md`.

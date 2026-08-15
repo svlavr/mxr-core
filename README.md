@@ -18,10 +18,11 @@ The first change is an opt-in TCP flow inspector at the final dispatcher route:
 
 The experiment has a `KEEP` decision as an internal opt-in capability and remains
 disabled by default. It does not expose a stable external core API. UDP identity,
-event transport, persistence, Android binding, and production readiness are not
-implemented.
+event transport, persistence, a stable embedding API, and production readiness
+are not implemented.
 
-See [the PoC contract](docs/TCP_FLOW_TRACKER_POC.md),
+Start with [the documentation map](docs/README.md), then see
+[the PoC contract](docs/TCP_FLOW_TRACKER_POC.md),
 [the exact upstream baseline](docs/FORK_BASELINE.md), and
 [the active roadmap](docs/ROADMAP.md).
 

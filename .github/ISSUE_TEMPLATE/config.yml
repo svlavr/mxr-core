@@ -1,1 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
+contact_links:
+  - name: Official Xray-core issue tracker
+    url: https://github.com/XTLS/Xray-core/issues
+    about: Report behavior reproduced on unmodified official upstream here.
+  - name: Private security report
+    url: https://github.com/svlavr/mxr-core/security/advisories/new
+    about: Report suspected vulnerabilities without publishing exploit details.

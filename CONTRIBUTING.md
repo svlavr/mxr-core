@@ -21,8 +21,8 @@ go vet ./common/session ./common/mux ./transport/pipe ./features/routing ./app/d
 ```
 
 Add tests for lifecycle, error, cancellation, concurrency, and ownership changes.
-Run race checks for shared-state changes. Report source, host build, Android core
-artifact, live-network, and release evidence separately.
+Run race checks for shared-state changes. Report source tests, cross-build,
+core-artifact runtime, live-network, and release evidence separately.
 
 ## Pull requests
 
