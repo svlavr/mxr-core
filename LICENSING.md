@@ -27,12 +27,12 @@ reasonable and timely method. Recipients must be told where to obtain it. The
 source offer must include modifications to covered files used to build that
 executable.
 
-## Separate application code
+## Larger works and separate files
 
 MPL-2.0 uses file-level copyleft. Separate files that contain no MPL-covered code
-may be licensed differently, including under proprietary terms, even when they
-are combined with covered files in a Larger Work. Copying covered source into a
-nominally separate file can make that file covered.
+may be licensed differently, including under proprietary terms, when combined
+with covered files in a Larger Work. Copying covered source into a nominally
+separate file can make that file covered.
 
 ## Repository practice
 
@@ -40,9 +40,9 @@ nominally separate file can make that file covered.
 - Mark new covered Go files with `SPDX-License-Identifier: MPL-2.0`.
 - Do not copy code from incompatible or unknown-license sources.
 - Record the exact source revision used for every distributed binary.
-- Before an app-store or binary release, verify that the public source matches
-  the covered files used in the shipped build and include a source-location
-  notice in the distribution.
+- Before distributing a core library or binary, verify that the public source
+  matches the covered files used in the shipped build and include a
+  source-location notice in the distribution.
 
 Primary references:
 

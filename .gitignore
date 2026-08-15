@@ -69,3 +69,7 @@ ehthumbs.db
 
 # Local development inputs and evidence
 .local/
+
+# Local AI-agent workflows
+.agents/
+AGENTS.md

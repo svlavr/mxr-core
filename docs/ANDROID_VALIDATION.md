@@ -1,17 +1,17 @@
-# Android validation boundary
+# Android core artifact validation
 
-This fork currently has Go source and unit-test evidence only. It has no MXR Core
-Android binding, `VpnService`, APK, device installation, signing, or Play release
-evidence.
+This fork currently has Go source and host-test evidence only. It has no validated
+Android core library or binding.
 
-When an executable Android boundary is accepted, validate in increasing scope:
+When an Android core artifact is accepted, validate in increasing scope:
 
 1. affected Go package tests and race tests on the host;
-2. reproducible Android target build for the intended ABI/API contract;
+2. reproducible Android cross-build for the intended ABI and API contract;
 3. binding or JNI contract tests;
-4. one primary emulator scenario for the affected path;
-5. physical-device, live-network, performance, background lifecycle, and release
-   checks only when explicitly required.
+4. process-local load, configure, start, call, cancel, stop, and native-resource
+   cleanup checks;
+5. emulator or physical-device checks only when required to prove core-artifact
+   behavior.
 
-Report each evidence class separately. A successful Go cross-compile is not an
-Android runtime test, and an emulator run is not Play release evidence.
+Report each evidence class separately. A successful cross-build is not runtime
+validation.

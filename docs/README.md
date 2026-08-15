@@ -7,9 +7,7 @@
 - `UPSTREAM_SYNC.md` — safe fetch/synchronization workflow and expected conflict
   surface.
 - `ROADMAP.md` — the only active ordered queue for this repository.
-- `ANDROID_VALIDATION.md` — evidence boundaries for future Android work.
-- `PROJECT_SETUP_GAPS.md` — repository, CI, security, Android, and publication
+- `ANDROID_VALIDATION.md` — evidence boundaries for a future Android core
+  library or binding.
+- `PROJECT_SETUP_GAPS.md` — repository, CI, core API, security, and publication
   infrastructure still required.
-
-Agent responsibilities and workflows are described in `AGENTS.md`,
-`.agents/README.md`, and `.agents/skills/`.
