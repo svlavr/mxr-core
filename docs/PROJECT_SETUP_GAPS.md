@@ -7,7 +7,8 @@ published, integrated, Android-ready, or release-ready product.
 
 - The public GitHub repository is `https://github.com/svlavr/mxr-core` and is
   configured as `origin`.
-- Publish and protect `main`; pushes to official `upstream` remain disabled.
+- `main` is published and protected by required pull requests and the `verify`,
+  `race`, and `windows` checks. Pushes to official `upstream` remain disabled.
 - Keep `main` as the permanent default branch and synchronize from the exact
   official upstream SHA through reviewed branches.
 - Fork ownership (`CODEOWNERS`), contribution policy, and PR templates are
@@ -17,7 +18,8 @@ published, integrated, Android-ready, or release-ready product.
 
 ## CI and test assets
 
-- Windows and Linux CI covers formatting, focused tests, race tests, and vet.
+- Verified Windows and Linux CI covers formatting, focused tests, race tests,
+  and vet.
   A reproducible release build remains open.
 - Make the broader upstream test gate deterministic: provide controlled geodata
   assets and isolate tests that currently depend on live DNS/network responses.
@@ -50,8 +52,9 @@ published, integrated, Android-ready, or release-ready product.
 
 - Complete a threat model for configuration, control API, routing/DNS integrity,
   endpoint metadata, native integration, updates, and build publication.
-- Add dependency/SBOM, vulnerability, secret, license, and artifact-signing
-  checks.
+- Dependabot security updates, secret scanning, push protection, and private
+  vulnerability reporting are enabled. SBOM, license automation, and artifact
+  signing remain open.
 - Before distributing an APK or core binary, complete MPL-2.0 notice and
   corresponding-source review for modified covered files.
 - Create privacy disclosures, data-retention behavior, Play policy checks,

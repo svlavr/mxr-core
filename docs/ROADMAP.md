@@ -25,8 +25,8 @@ items are not implied authorization for implementation.
 - [x] Choose GitHub owner and public visibility.
 - [x] Create the public `origin` repository.
 - [x] Publish the initial `main`.
-- [ ] Enable and verify branch protection.
-- [ ] Verify CI, dependency/security settings, notices, and repository permissions.
+- [x] Enable and verify branch protection.
+- [x] Verify CI, dependency/security settings, notices, and repository permissions.
 - [ ] Add release provenance before publishing any binary.
 - [ ] Complete Android, Play policy, privacy, signing, and release validation
   before making any Google Play readiness claim.
