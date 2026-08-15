@@ -529,9 +529,11 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 		if ob.Target.IsValid() {
 			flowDestination = ob.Target
 		}
-		var finish func()
+		feedback := &tcpFlowFeedback{parent: ctx}
+		ctx = session.TrackedConnectionError(ctx, feedback)
+		var finish func(routing.TCPFlowEndReason)
 		link, finish = d.tcpFlows.track(link, source, flowDestination.String(), handler.Tag())
-		defer finish()
+		defer func() { finish(feedback.endReason(ctx)) }()
 	}
 
 	handler.Dispatch(ctx, link)

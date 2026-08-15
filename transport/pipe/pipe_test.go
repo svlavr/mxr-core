@@ -137,6 +137,109 @@ func TestInterfaces(t *testing.T) {
 	_ = common.Closable(new(Writer))
 }
 
+func TestClearReadCounterWaitsForInFlightCallback(t *testing.T) {
+	reader, writer := New(WithoutSizeLimit())
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	detach := reader.SetReadCounter(func(int64) {
+		close(callbackStarted)
+		<-releaseCallback
+	})
+	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{buf.FromBytes([]byte("payload"))}))
+
+	readDone := make(chan struct{})
+	go func() {
+		mb, err := reader.ReadMultiBuffer()
+		common.Must(err)
+		buf.ReleaseMulti(mb)
+		close(readDone)
+	}()
+	<-callbackStarted
+	clearDone := make(chan struct{})
+	go func() {
+		detach()
+		close(clearDone)
+	}()
+	select {
+	case <-clearDone:
+		t.Fatal("read counter cleared before its in-flight callback completed")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(releaseCallback)
+	<-readDone
+	<-clearDone
+}
+
+func TestClearWriteCounterWaitsForInFlightCallback(t *testing.T) {
+	_, writer := New(WithoutSizeLimit())
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	detach := writer.SetWriteCounter(func(int64) {
+		close(callbackStarted)
+		<-releaseCallback
+	})
+
+	writeDone := make(chan struct{})
+	go func() {
+		common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{buf.FromBytes([]byte("payload"))}))
+		close(writeDone)
+	}()
+	<-callbackStarted
+	clearDone := make(chan struct{})
+	go func() {
+		detach()
+		close(clearDone)
+	}()
+	select {
+	case <-clearDone:
+		t.Fatal("write counter cleared before its in-flight callback completed")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(releaseCallback)
+	<-writeDone
+	<-clearDone
+}
+
+func TestCounterDetachOwnsItsGeneration(t *testing.T) {
+	_, writer := New(WithoutSizeLimit())
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	detachFirst := writer.SetWriteCounter(func(int64) {
+		close(firstStarted)
+		<-releaseFirst
+	})
+
+	firstWriteDone := make(chan struct{})
+	go func() {
+		common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{buf.FromBytes([]byte("first"))}))
+		close(firstWriteDone)
+	}()
+	<-firstStarted
+
+	secondCalled := make(chan struct{}, 1)
+	detachSecond := writer.SetWriteCounter(func(int64) { secondCalled <- struct{}{} })
+	firstDetachDone := make(chan struct{})
+	go func() {
+		detachFirst()
+		close(firstDetachDone)
+	}()
+	common.Must(writer.WriteMultiBuffer(buf.MultiBuffer{buf.FromBytes([]byte("second"))}))
+	select {
+	case <-secondCalled:
+	case <-time.After(time.Second):
+		t.Fatal("detaching the first counter removed the second generation")
+	}
+	select {
+	case <-firstDetachDone:
+		t.Fatal("first counter detached before its own callback completed")
+	default:
+	}
+	close(releaseFirst)
+	<-firstWriteDone
+	<-firstDetachDone
+	detachSecond()
+}
+
 func BenchmarkPipeReadWrite(b *testing.B) {
 	reader, writer := New(WithoutSizeLimit())
 	a := buf.New()

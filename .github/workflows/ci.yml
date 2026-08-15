@@ -35,9 +35,18 @@ jobs:
           changed="$(gofmt -l \
             app/dispatcher/default.go \
             app/dispatcher/tcp_flow_tracker.go \
+            app/dispatcher/tcp_flow_tracker_benchmark_test.go \
             app/dispatcher/tcp_flow_tracker_test.go \
+            common/mux/client.go \
+            common/mux/client_test.go \
+            common/mux/server.go \
+            common/mux/session.go \
+            common/mux/writer.go \
+            common/mux/writer_close_test.go \
+            common/session/context.go \
             features/routing/tcp_flow.go \
             transport/pipe/impl.go \
+            transport/pipe/pipe_test.go \
             transport/pipe/reader.go \
             transport/pipe/writer.go)"
           if [[ -n "$changed" ]]; then
@@ -46,10 +55,10 @@ jobs:
           fi
 
       - name: Vet affected packages
-        run: go vet ./transport/pipe ./features/routing ./app/dispatcher
+        run: go vet ./common/session ./common/mux ./transport/pipe ./features/routing ./app/dispatcher
 
       - name: Test affected packages
-        run: go test ./transport/pipe ./features/routing ./app/dispatcher
+        run: go test ./common/session ./common/mux ./transport/pipe ./features/routing ./app/dispatcher
 
   race:
     name: race
@@ -65,8 +74,8 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Race test dispatcher
-        run: go test -race ./app/dispatcher
+      - name: Race test affected packages
+        run: go test -race ./common/session ./common/mux ./transport/pipe ./features/routing ./app/dispatcher
 
   windows:
     name: windows
@@ -83,4 +92,4 @@ jobs:
           cache: true
 
       - name: Test affected packages
-        run: go test ./transport/pipe ./features/routing ./app/dispatcher
+        run: go test ./common/session ./common/mux ./transport/pipe ./features/routing ./app/dispatcher

@@ -3,12 +3,15 @@
 package dispatcher
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
+	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/transport"
 	"github.com/xtls/xray-core/transport/pipe"
@@ -55,7 +58,54 @@ func newTCPFlowTracker(historyLimit int) *tcpFlowTracker {
 	}
 }
 
-func (t *tcpFlowTracker) track(link *transport.Link, source, destination, outboundTag string) (*transport.Link, func()) {
+type tcpFlowFeedback struct {
+	parent      context.Context
+	failed      atomic.Bool
+	lifecycleMu sync.Mutex
+	lifecycle   <-chan error
+}
+
+func (f *tcpFlowFeedback) SubmitError(err error) {
+	f.failed.Store(true)
+	session.SubmitOutboundErrorToOriginator(f.parent, err)
+}
+
+func (f *tcpFlowFeedback) SubmitLifecycle(result <-chan error) {
+	if result == nil {
+		return
+	}
+	f.lifecycleMu.Lock()
+	if f.lifecycle == nil {
+		f.lifecycle = result
+	}
+	f.lifecycleMu.Unlock()
+}
+
+func (f *tcpFlowFeedback) waitForLifecycle() error {
+	f.lifecycleMu.Lock()
+	result := f.lifecycle
+	f.lifecycleMu.Unlock()
+	if result != nil {
+		return <-result
+	}
+	return nil
+}
+
+func (f *tcpFlowFeedback) endReason(ctx context.Context) routing.TCPFlowEndReason {
+	lifecycleErr := f.waitForLifecycle()
+	if lifecycleErr != nil && !errors.Is(lifecycleErr, context.Canceled) && f.failed.CompareAndSwap(false, true) {
+		session.SubmitOutboundErrorToOriginator(f.parent, lifecycleErr)
+	}
+	if f.failed.Load() {
+		return routing.TCPFlowFailed
+	}
+	if errors.Is(lifecycleErr, context.Canceled) || ctx.Err() != nil {
+		return routing.TCPFlowCancelled
+	}
+	return routing.TCPFlowCompleted
+}
+
+func (t *tcpFlowTracker) track(link *transport.Link, source, destination, outboundTag string) (*transport.Link, func(routing.TCPFlowEndReason)) {
 	id := t.nextID.Add(1)
 	flow := &trackedTCPFlow{snapshot: routing.TCPFlowSnapshot{
 		FlowID:      id,
@@ -73,8 +123,7 @@ func (t *tcpFlowTracker) track(link *transport.Link, source, destination, outbou
 	trackedLink := &transport.Link{Reader: link.Reader, Writer: link.Writer}
 	detach := make([]func(), 0, 2)
 	if reader, ok := link.Reader.(*pipe.Reader); ok {
-		reader.SetReadCounter(func(size int64) { flow.uplink.Add(size) })
-		detach = append(detach, func() { reader.SetReadCounter(nil) })
+		detach = append(detach, reader.SetReadCounter(func(size int64) { flow.uplink.Add(size) }))
 	} else {
 		countingReader := &tcpFlowReader{Reader: link.Reader, bytes: &flow.uplink}
 		trackedLink.Reader = countingReader
@@ -86,23 +135,22 @@ func (t *tcpFlowTracker) track(link *transport.Link, source, destination, outbou
 		}
 	}
 	if writer, ok := link.Writer.(*pipe.Writer); ok {
-		writer.SetWriteCounter(func(size int64) { flow.downlink.Add(size) })
-		detach = append(detach, func() { writer.SetWriteCounter(nil) })
+		detach = append(detach, writer.SetWriteCounter(func(size int64) { flow.downlink.Add(size) }))
 	} else {
 		trackedLink.Writer = &tcpFlowWriter{Writer: link.Writer, bytes: &flow.downlink}
 	}
 	var closeOnce sync.Once
-	return trackedLink, func() {
+	return trackedLink, func(reason routing.TCPFlowEndReason) {
 		closeOnce.Do(func() {
 			for _, stop := range detach {
 				stop()
 			}
-			t.close(id)
+			t.close(id, reason)
 		})
 	}
 }
 
-func (t *tcpFlowTracker) close(id uint64) {
+func (t *tcpFlowTracker) close(id uint64, reason routing.TCPFlowEndReason) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -113,6 +161,7 @@ func (t *tcpFlowTracker) close(id uint64) {
 	delete(t.active, id)
 	snapshot := flow.current()
 	snapshot.State = routing.TCPFlowClosed
+	snapshot.EndReason = reason
 	snapshot.ClosedAt = t.now().UTC()
 	if t.historyLimit == 0 {
 		return

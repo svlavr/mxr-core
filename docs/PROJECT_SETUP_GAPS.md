@@ -1,7 +1,7 @@
 # Project setup gaps
 
-The fork is locally usable for the TCP flow tracker experiment, but it is not a
-published, integrated, Android-ready, or release-ready product.
+The fork is locally usable for the TCP flow tracker experiment, but it does not
+yet expose a stable external core API or a release-ready core artifact.
 
 ## Repository and provenance
 
@@ -23,40 +23,46 @@ published, integrated, Android-ready, or release-ready product.
   A reproducible release build remains open.
 - Make the broader upstream test gate deterministic: provide controlled geodata
   assets and isolate tests that currently depend on live DNS/network responses.
-- Add benchmarks for tracker CPU, allocations, lock contention, and retained
-  history under concurrent flows.
-- Add lifecycle cases for route failure, forced/default outbound, cancellation,
-  failed writes, sniffing/route-only mode, detours, and mux.
+- Repeat performance gates when snapshot polling or an event queue exists;
+  current benchmarks cover saturated retained history, concurrent lifecycle
+  writes, the exact-final-counter detach barrier, and native-pipe
+  uplink/downlink accounting, but not polling or tail latency.
+- Add the remaining lifecycle cases for non-mux failed writes and
+  sniffing/route-only mode. Ordinary completion, reported failure, cooperative
+  cancellation, default/routed/forced selection, missing-detour rejection,
+  logical mux-session cleanup, remote mux error, terminal-frame write failure,
+  strict remote End-payload validation, and physical mux-worker termination are
+  covered.
 
 ## Stable fork contract
 
 - Decide whether the tracker remains in-process only or gains a versioned
-  protobuf/API/event contract.
+  external core API/event contract.
 - Define subscription backpressure, overflow, ordering, reconnection, retention,
-  clear/reset behavior, and multiple-core identity.
+  and clear/reset behavior.
 - Define sensitive source/destination redaction and authorization before exposing
   snapshots outside the process.
 - Decide exact semantics for logical payload bytes versus transport/interface
   bytes and for mux substreams.
 
-## Product integration
+## Core API and artifacts
 
-- Design a clean consumer boundary from the app to this repository; do not copy
-  external application modules into the fork.
-- Add a reproducible Android library/binary build, supported ABIs, API 29
-  compatibility, binding/JNI contract, native loading, packaging, and shutdown.
-- Only then connect to a target-owned Android `VpnService`/TUN path and validate
-  emulator, physical-device, background lifecycle, network changes, and load.
+- Define the smallest versioned core embedding API needed to configure, start,
+  inspect, cancel, and stop the core runtime.
+- Add reproducible core library/binary builds, supported target and architecture
+  metadata, a narrow exported binding surface, deterministic loading, and
+  shutdown tests.
+- Keep this repository limited to core APIs, core runtime code, and core
+  artifacts.
 
 ## Security, licensing, and release
 
-- Complete a threat model for configuration, control API, routing/DNS integrity,
-  endpoint metadata, native integration, updates, and build publication.
+- Complete a threat model for configuration, the external core API, routing/DNS
+  integrity, endpoint metadata, updates, and build publication.
 - Dependabot security updates, secret scanning, push protection, and private
   vulnerability reporting are enabled. SBOM, license automation, and artifact
   signing remain open.
-- Before distributing an APK or core binary, complete MPL-2.0 notice and
+- Before distributing a core library or binary, complete MPL-2.0 notice and
   corresponding-source review for modified covered files.
-- Create privacy disclosures, data-retention behavior, Play policy checks,
-  signing/key custody, internal testing track, crash/telemetry policy, rollback,
+- Define core artifact signing/key custody, SBOM, reproducible build, rollback,
   and release acceptance gates.

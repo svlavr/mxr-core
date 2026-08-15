@@ -28,7 +28,10 @@ func (w *Writer) Interrupt() {
 	w.pipe.Interrupt()
 }
 
-// SetWriteCounter sets an optional callback invoked for bytes accepted by this pipe.
-func (w *Writer) SetWriteCounter(counter func(int64)) {
-	w.pipe.setWriteCounter(counter)
+// SetWriteCounter sets an optional callback invoked for bytes accepted by this
+// pipe and returns an idempotent detach function for that callback generation.
+// Detach waits for its invocations already in flight and must not be called by
+// the callback itself.
+func (w *Writer) SetWriteCounter(counter func(int64)) func() {
+	return w.pipe.setWriteCounter(counter)
 }
