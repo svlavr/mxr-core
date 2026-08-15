@@ -1,78 +1,59 @@
-name: Bug report
-description: "Submit Xray-core bug"
+name: MXR Core bug report
+description: Report behavior introduced or changed by this fork
+title: "[Bug]: "
 body:
-  - type: checkboxes
-    attributes:
-      label: Integrity requirements
-      description: |-
-        Please check all of the following options to prove that you have read and understood the requirements, otherwise this issue will be closed.
-      options:
-        - label: I have read all the comments in the issue template and ensured that this issue meet the requirements.
-          required: true
-        - label: I confirm that I have read the documentation, understand the meaning of all the configuration items I wrote, and did not pile up seemingly useful options or default values.
-          required: true
-        - label: I provided the complete config and logs, rather than just providing the truncated parts based on my own judgment.
-          required: true
-        - label: I searched issues and did not find any similar issues.
-          required: true
-        - label: The problem can be successfully reproduced in the latest Release
-          required: true
-  - type: textarea
-    attributes:
-      label: Description
-      description: |-
-        Please provide a detailed description of the error. And the information you think valuable.
-        If the problem occurs after the update, please provide the **specific** version
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Reproduction Method
-      description: |-
-        Based on the configuration you provided below, provide the method to reproduce the bug.
-    validations:
-      required: true
   - type: markdown
     attributes:
-      value: |-
-        ## Configuration and Log Section
-        
-        ### For config
-        Please provide the configuration files that can reproduce the problem, including the server and client.
-        Don't just paste a big exported config file here. Eliminate useless inbound/outbound, rules, options, this can help determine the problem, if you really want to get help.
-        After removing parts that do not affect reproduction, provide the actual running **complete** file.
-        meaning of complete: This config can be directly used to start the core, **not a truncated part of the config**. For fields like keys, use newly generated valid parameters that have not been actually used to fill in.
-
-        ### For logs
-        Please set the log level to debug and dnsLog to true first.
-        Restart Xray-core, then operate according to the reproduction method, try to reduce the irrelevant part in the log.
-        Remember to delete parts with personal information (such as UUID and IP).
-        Provide the log of Xray-core, not the log output by the panel or other things.
-
-        ### Finally
-        The specific content to be filled in each of the following text boxes needs to be placed between ```<details><pre><code>``` and ```</code></pre></details>```, like this
-        ```
-        <details><pre><code>
-        (config)
-        </code></pre></details>
-        ```
-  - type: textarea
+      value: |
+        MXR Core is an experimental fork. Please report only reproducible core
+        behavior and remove credentials, live endpoints, keys, UUIDs, and private
+        addresses from all examples.
+  - type: input
+    id: commit
     attributes:
-      label: Client config
+      label: MXR Core commit
+      description: Exact commit SHA used for the reproduction.
+      placeholder: 40-character commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: upstream
+    attributes:
+      label: Official upstream result
+      description: Does the same behavior occur on the baseline from docs/FORK_BASELINE.md?
+      options:
+        - Fork only
+        - Also reproducible upstream
+        - Not tested upstream
     validations:
       required: true
   - type: textarea
+    id: reproduction
     attributes:
-      label: Server config
+      label: Minimal reproduction
+      description: Provide the smallest configuration and exact steps that reproduce the issue.
     validations:
       required: true
   - type: textarea
+    id: result
     attributes:
-      label: Client log
+      label: Expected and actual result
+      description: Explain what should happen and what happens instead.
     validations:
       required: true
   - type: textarea
+    id: evidence
     attributes:
-      label: Server log
+      label: Sanitized evidence
+      description: Include relevant logs, stack traces, test output, and environment details.
     validations:
       required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and pull requests for the same behavior.
+          required: true
+        - label: I removed credentials, live endpoints, keys, UUIDs, and private addresses.
+          required: true
