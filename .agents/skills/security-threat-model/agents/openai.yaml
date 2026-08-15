@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xray Fork Threat Model"
-  short_description: "Model concrete fork trust boundaries and abuse paths"
-  default_prompt: "Use $security-threat-model to create an evidence-grounded threat model for the requested Xray fork scope."

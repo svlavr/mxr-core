@@ -8,7 +8,6 @@
 - Baseline commit: `7d214f8b094f75322fa3990f8aadad1c912f24f5`
 - Upstream commit time: `2026-08-12T08:38:01Z`
 - Upstream subject: `WireGuard outbound: Fix sendThrough support (#6570)`
-- Local development branch: `codex/mxr-poc-tcp-flow-tracker`
 - Verified on: `2026-08-15`
 
 This baseline was cloned directly from official GitHub. It did not reuse an
@@ -19,7 +18,7 @@ older local Xray checkout.
 The upstream repository is licensed under MPL-2.0; the root `LICENSE` remains
 the controlling inherited license text. Fork modifications must retain upstream
 notices and must be reviewed for MPL source-distribution obligations before an
-APK or other executable is published.
+MXR Core library or executable is published.
 
 ## Baseline update rule
 

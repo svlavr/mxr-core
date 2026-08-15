@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xray Fork Android Validation"
-  short_description: "Validate only the affected executable Android boundary"
-  default_prompt: "Use $xray-fork-android-validation to validate the smallest truthful Android scope for this fork change."

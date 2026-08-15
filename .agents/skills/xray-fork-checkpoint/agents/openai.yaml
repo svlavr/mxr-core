@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xray Fork Checkpoint"
-  short_description: "Checkpoint verified fork work without unsafe publication"
-  default_prompt: "Use $xray-fork-checkpoint to save the verified fork slice within the configured remote and publication gates."
