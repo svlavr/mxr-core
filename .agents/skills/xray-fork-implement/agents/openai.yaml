@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xray Fork Implement"
+  short_description: "Implement bounded, upstream-mergeable fork changes"
+  default_prompt: "Use $xray-fork-implement to implement the approved fork slice and validate the exact affected path."

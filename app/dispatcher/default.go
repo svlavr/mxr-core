@@ -26,6 +26,8 @@ import (
 
 var errSniffingTimeout = errors.New("timeout on sniffing")
 
+var _ routing.TCPFlowInspector = (*DefaultDispatcher)(nil)
+
 type cachedReader struct {
 	sync.Mutex
 	reader buf.TimeoutReader // *pipe.Reader or *buf.TimeoutWrapperReader
@@ -93,11 +95,12 @@ func (r *cachedReader) Interrupt() {
 
 // DefaultDispatcher is a default implementation of Dispatcher.
 type DefaultDispatcher struct {
-	ohm    outbound.Manager
-	router routing.Router
-	policy policy.Manager
-	stats  stats.Manager
-	fdns   dns.FakeDNSEngine
+	ohm      outbound.Manager
+	router   routing.Router
+	policy   policy.Manager
+	stats    stats.Manager
+	fdns     dns.FakeDNSEngine
+	tcpFlows *tcpFlowTracker
 }
 
 func init() {
@@ -121,7 +124,23 @@ func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router rou
 	d.router = router
 	d.policy = pm
 	d.stats = sm
+	d.tcpFlows = newTCPFlowTracker(tcpFlowHistoryLimit)
 	return nil
+}
+
+// SnapshotTCPFlows implements routing.TCPFlowInspector.
+func (d *DefaultDispatcher) SnapshotTCPFlows() []routing.TCPFlowSnapshot {
+	if d.tcpFlows == nil {
+		return nil
+	}
+	return d.tcpFlows.snapshot()
+}
+
+// EnableTCPFlowTracking enables the experimental tracker for new TCP flows.
+func (d *DefaultDispatcher) EnableTCPFlowTracking() {
+	if d.tcpFlows != nil {
+		d.tcpFlows.enable()
+	}
 }
 
 // Type implements common.HasType.
@@ -499,6 +518,20 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 			}
 		}
 		log.Record(accessMessage)
+	}
+
+	if destination.Network == net.Network_TCP && d.tcpFlows != nil && d.tcpFlows.isEnabled() {
+		source := ""
+		if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Source.IsValid() {
+			source = inbound.Source.String()
+		}
+		flowDestination := destination
+		if ob.Target.IsValid() {
+			flowDestination = ob.Target
+		}
+		var finish func()
+		link, finish = d.tcpFlows.track(link, source, flowDestination.String(), handler.Tag())
+		defer finish()
 	}
 
 	handler.Dispatch(ctx, link)

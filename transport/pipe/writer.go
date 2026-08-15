@@ -27,3 +27,8 @@ func (w *Writer) Len() int32 {
 func (w *Writer) Interrupt() {
 	w.pipe.Interrupt()
 }
+
+// SetWriteCounter sets an optional callback invoked for bytes accepted by this pipe.
+func (w *Writer) SetWriteCounter(counter func(int64)) {
+	w.pipe.setWriteCounter(counter)
+}

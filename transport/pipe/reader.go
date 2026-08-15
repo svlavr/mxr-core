@@ -26,6 +26,11 @@ func (r *Reader) Interrupt() {
 	r.pipe.Interrupt()
 }
 
+// SetReadCounter sets an optional callback invoked for bytes read from this pipe.
+func (r *Reader) SetReadCounter(counter func(int64)) {
+	r.pipe.setReadCounter(counter)
+}
+
 // ReturnAnError makes ReadMultiBuffer return an error, only once.
 func (r *Reader) ReturnAnError(err error) {
 	r.pipe.errChan <- err

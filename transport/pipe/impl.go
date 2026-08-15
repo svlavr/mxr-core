@@ -31,13 +31,15 @@ func (o *pipeOption) isFull(curSize int32) bool {
 
 type pipe struct {
 	sync.Mutex
-	data        buf.MultiBuffer
-	readSignal  *signal.Notifier
-	writeSignal *signal.Notifier
-	done        *done.Instance
-	errChan     chan error
-	option      pipeOption
-	state       state
+	data         buf.MultiBuffer
+	readSignal   *signal.Notifier
+	writeSignal  *signal.Notifier
+	done         *done.Instance
+	errChan      chan error
+	option       pipeOption
+	state        state
+	readCounter  func(int64)
+	writeCounter func(int64)
 }
 
 var (
@@ -77,14 +79,18 @@ func (p *pipe) getState(forRead bool) error {
 
 func (p *pipe) readMultiBufferInternal() (buf.MultiBuffer, error) {
 	p.Lock()
-	defer p.Unlock()
-
 	if err := p.getState(true); err != nil {
+		p.Unlock()
 		return nil, err
 	}
 
 	data := p.data
 	p.data = nil
+	counter := p.readCounter
+	p.Unlock()
+	if counter != nil {
+		counter(int64(data.Len()))
+	}
 	return data, nil
 }
 
@@ -127,18 +133,35 @@ func (p *pipe) ReadMultiBufferTimeout(d time.Duration) (buf.MultiBuffer, error) 
 
 func (p *pipe) writeMultiBufferInternal(mb buf.MultiBuffer) error {
 	p.Lock()
-	defer p.Unlock()
-
 	if err := p.getState(false); err != nil {
+		p.Unlock()
 		return err
 	}
 
+	size := int64(mb.Len())
 	if p.data == nil {
 		p.data = mb
 	} else {
 		p.data, _ = buf.MergeMulti(p.data, mb)
 	}
+	counter := p.writeCounter
+	p.Unlock()
+	if counter != nil {
+		counter(size)
+	}
 	return nil
+}
+
+func (p *pipe) setReadCounter(counter func(int64)) {
+	p.Lock()
+	p.readCounter = counter
+	p.Unlock()
+}
+
+func (p *pipe) setWriteCounter(counter func(int64)) {
+	p.Lock()
+	p.writeCounter = counter
+	p.Unlock()
 }
 
 func (p *pipe) WriteMultiBuffer(mb buf.MultiBuffer) error {

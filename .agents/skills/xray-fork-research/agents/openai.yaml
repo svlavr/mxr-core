@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xray Fork Research"
+  short_description: "Verify upstream and bound fork divergence"
+  default_prompt: "Use $xray-fork-research to verify official upstream and recommend the smallest evidence-backed fork decision."
