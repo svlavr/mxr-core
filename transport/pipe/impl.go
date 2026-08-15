@@ -38,8 +38,13 @@ type pipe struct {
 	errChan      chan error
 	option       pipeOption
 	state        state
-	readCounter  func(int64)
-	writeCounter func(int64)
+	readCounter  *counterHook
+	writeCounter *counterHook
+}
+
+type counterHook struct {
+	callback func(int64)
+	inFlight sync.WaitGroup
 }
 
 var (
@@ -87,9 +92,15 @@ func (p *pipe) readMultiBufferInternal() (buf.MultiBuffer, error) {
 	data := p.data
 	p.data = nil
 	counter := p.readCounter
+	if counter != nil {
+		counter.inFlight.Add(1)
+	}
 	p.Unlock()
 	if counter != nil {
-		counter(int64(data.Len()))
+		func() {
+			defer counter.inFlight.Done()
+			counter.callback(int64(data.Len()))
+		}()
 	}
 	return data, nil
 }
@@ -145,23 +156,73 @@ func (p *pipe) writeMultiBufferInternal(mb buf.MultiBuffer) error {
 		p.data, _ = buf.MergeMulti(p.data, mb)
 	}
 	counter := p.writeCounter
+	if counter != nil {
+		counter.inFlight.Add(1)
+	}
 	p.Unlock()
 	if counter != nil {
-		counter(size)
+		func() {
+			defer counter.inFlight.Done()
+			counter.callback(size)
+		}()
 	}
 	return nil
 }
 
-func (p *pipe) setReadCounter(counter func(int64)) {
+func (p *pipe) setReadCounter(counter func(int64)) func() {
+	if counter == nil {
+		p.Lock()
+		previous := p.readCounter
+		p.readCounter = nil
+		p.Unlock()
+		if previous != nil {
+			previous.inFlight.Wait()
+		}
+		return func() {}
+	}
+	hook := &counterHook{callback: counter}
 	p.Lock()
-	p.readCounter = counter
+	p.readCounter = hook
 	p.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			p.Lock()
+			if p.readCounter == hook {
+				p.readCounter = nil
+			}
+			p.Unlock()
+			hook.inFlight.Wait()
+		})
+	}
 }
 
-func (p *pipe) setWriteCounter(counter func(int64)) {
+func (p *pipe) setWriteCounter(counter func(int64)) func() {
+	if counter == nil {
+		p.Lock()
+		previous := p.writeCounter
+		p.writeCounter = nil
+		p.Unlock()
+		if previous != nil {
+			previous.inFlight.Wait()
+		}
+		return func() {}
+	}
+	hook := &counterHook{callback: counter}
 	p.Lock()
-	p.writeCounter = counter
+	p.writeCounter = hook
 	p.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			p.Lock()
+			if p.writeCounter == hook {
+				p.writeCounter = nil
+			}
+			p.Unlock()
+			hook.inFlight.Wait()
+		})
+	}
 }
 
 func (p *pipe) WriteMultiBuffer(mb buf.MultiBuffer) error {

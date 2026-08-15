@@ -23,10 +23,16 @@ published, integrated, Android-ready, or release-ready product.
   A reproducible release build remains open.
 - Make the broader upstream test gate deterministic: provide controlled geodata
   assets and isolate tests that currently depend on live DNS/network responses.
-- Add benchmarks for tracker CPU, allocations, lock contention, and retained
-  history under concurrent flows.
-- Add lifecycle cases for route failure, forced/default outbound, cancellation,
-  failed writes, sniffing/route-only mode, detours, and mux.
+- Repeat performance gates when snapshot polling or an event queue exists;
+  current benchmarks cover saturated retained history, concurrent lifecycle
+  writes, the exact-final-counter detach barrier, and native-pipe
+  uplink/downlink accounting, but not polling or tail latency.
+- Add the remaining lifecycle cases for non-mux failed writes and
+  sniffing/route-only mode. Ordinary completion, reported failure, cooperative
+  cancellation, default/routed/forced selection, missing-detour rejection,
+  logical mux-session cleanup, remote mux error, terminal-frame write failure,
+  strict remote End-payload validation, and physical mux-worker termination are
+  covered.
 
 ## Stable fork contract
 

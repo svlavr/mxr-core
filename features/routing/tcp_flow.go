@@ -12,8 +12,18 @@ const (
 	TCPFlowClosed TCPFlowState = "closed"
 )
 
+// TCPFlowEndReason describes why a tracked TCP flow closed.
+type TCPFlowEndReason string
+
+const (
+	TCPFlowCompleted TCPFlowEndReason = "completed"
+	TCPFlowCancelled TCPFlowEndReason = "cancelled"
+	TCPFlowFailed    TCPFlowEndReason = "failed"
+)
+
 // TCPFlowSnapshot is a point-in-time view of one routed TCP flow.
-// FlowID is unique within one dispatcher instance.
+// FlowID is unique within one dispatcher instance. EndReason is empty while
+// the flow is active and set exactly once when the flow closes.
 type TCPFlowSnapshot struct {
 	FlowID        uint64
 	Source        string
@@ -22,6 +32,7 @@ type TCPFlowSnapshot struct {
 	UplinkBytes   int64
 	DownlinkBytes int64
 	State         TCPFlowState
+	EndReason     TCPFlowEndReason
 	StartedAt     time.Time
 	ClosedAt      time.Time
 }

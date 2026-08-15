@@ -26,9 +26,12 @@ func (r *Reader) Interrupt() {
 	r.pipe.Interrupt()
 }
 
-// SetReadCounter sets an optional callback invoked for bytes read from this pipe.
-func (r *Reader) SetReadCounter(counter func(int64)) {
-	r.pipe.setReadCounter(counter)
+// SetReadCounter sets an optional callback invoked for bytes read from this
+// pipe and returns an idempotent detach function for that callback generation.
+// Detach waits for its invocations already in flight and must not be called by
+// the callback itself.
+func (r *Reader) SetReadCounter(counter func(int64)) func() {
+	return r.pipe.setReadCounter(counter)
 }
 
 // ReturnAnError makes ReadMultiBuffer return an error, only once.

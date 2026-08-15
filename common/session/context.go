@@ -19,7 +19,7 @@ const (
 	contentSessionKey         ctx.SessionKey = 3
 	isReverseMuxKey           ctx.SessionKey = 4  // is reverse mux
 	sockoptSessionKey         ctx.SessionKey = 5  // used by dokodemo to only receive sockopt.Mark
-	trackedConnectionErrorKey ctx.SessionKey = 6  // used by observer to get outbound error
+	trackedConnectionErrorKey ctx.SessionKey = 6  // used by observers to get outbound error and lifecycle feedback
 	dispatcherKey             ctx.SessionKey = 7  // used by ss2022 inbounds to get dispatcher
 	timeoutOnlyKey            ctx.SessionKey = 8  // mux context's child contexts to only cancel when its own traffic times out
 	allowedNetworkKey         ctx.SessionKey = 9  // muxcool server control incoming request tcp/udp
@@ -118,11 +118,33 @@ type TrackedRequestErrorFeedback interface {
 	SubmitError(err error)
 }
 
+// trackedRequestLifecycleFeedback observes asynchronous outbound cleanup.
+// The result channel yields nil for normal completion or an error for failure,
+// after the outbound has released the request resources.
+type trackedRequestLifecycleFeedback interface {
+	SubmitLifecycle(result <-chan error)
+}
+
 func SubmitOutboundErrorToOriginator(ctx context.Context, err error) {
 	if errorTracker := ctx.Value(trackedConnectionErrorKey); errorTracker != nil {
 		errorTracker := errorTracker.(TrackedRequestErrorFeedback)
 		errorTracker.SubmitError(err)
 	}
+}
+
+// SubmitOutboundLifecycleToOriginator submits a post-cleanup lifecycle signal
+// when the existing tracked-request observer supports it.
+func SubmitOutboundLifecycleToOriginator(ctx context.Context, result <-chan error) {
+	if lifecycleTracker, ok := ctx.Value(trackedConnectionErrorKey).(trackedRequestLifecycleFeedback); ok {
+		lifecycleTracker.SubmitLifecycle(result)
+	}
+}
+
+// OutboundLifecycleTracked reports whether the tracked-request observer accepts
+// asynchronous outbound lifecycle signals.
+func OutboundLifecycleTracked(ctx context.Context) bool {
+	_, ok := ctx.Value(trackedConnectionErrorKey).(trackedRequestLifecycleFeedback)
+	return ok
 }
 
 func TrackedConnectionError(ctx context.Context, tracker TrackedRequestErrorFeedback) context.Context {

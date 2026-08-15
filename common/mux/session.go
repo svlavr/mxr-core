@@ -136,6 +136,10 @@ func (m *SessionManager) CloseIfNoSessionAndIdle(checkSize int, checkCount int) 
 }
 
 func (m *SessionManager) Close() error {
+	return m.closeWithError(nil)
+}
+
+func (m *SessionManager) closeWithError(err error) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -146,7 +150,7 @@ func (m *SessionManager) Close() error {
 	m.closed = true
 
 	for _, s := range m.sessions {
-		s.Close(true)
+		s.closeWithError(true, err)
 	}
 
 	m.sessions = nil
@@ -155,24 +159,73 @@ func (m *SessionManager) Close() error {
 
 // Session represents a client connection in a Mux connection.
 type Session struct {
-	input        buf.Reader
-	output       buf.Writer
-	parent       *SessionManager
-	ID           uint16
-	transferType protocol.TransferType
-	closed       bool
-	done         *done.Instance
-	XUDP         *XUDP
+	input            buf.Reader
+	output           buf.Writer
+	parent           *SessionManager
+	ID               uint16
+	transferType     protocol.TransferType
+	closed           bool
+	remoteEndPending bool
+	done             *done.Instance
+	lifecycleResult  chan error
+	XUDP             *XUDP
+}
+
+func (s *Session) bind(input buf.Reader, output buf.Writer, tracked bool) (<-chan error, bool) {
+	s.parent.Lock()
+	defer s.parent.Unlock()
+	if s.closed {
+		return nil, false
+	}
+	s.input = input
+	s.output = output
+	if tracked {
+		s.lifecycleResult = make(chan error, 1)
+	}
+	return s.lifecycleResult, true
 }
 
 // Close closes all resources associated with this session.
 func (s *Session) Close(locked bool) error {
+	return s.closeWithError(locked, nil)
+}
+
+// reserveRemoteEnd prevents a concurrent normal uplink EOF from publishing
+// completed while an observed remote End's optional data is validated. A
+// cancellation or other non-nil terminal result may still close the session.
+func (s *Session) reserveRemoteEnd() (reserved bool, tracked bool) {
+	s.parent.Lock()
+	defer s.parent.Unlock()
+	tracked = s.lifecycleResult != nil
+	if s.closed || s.remoteEndPending || !tracked {
+		return false, tracked
+	}
+	s.remoteEndPending = true
+	return true, true
+}
+
+func (s *Session) finishRemoteEnd(err error) error {
+	s.parent.Lock()
+	defer s.parent.Unlock()
+	if s.closed || !s.remoteEndPending {
+		return nil
+	}
+	s.remoteEndPending = false
+	return s.closeWithError(true, err)
+}
+
+// closeWithError closes all resources and publishes the post-cleanup result to
+// an optional tracked-request observer. The first close result wins.
+func (s *Session) closeWithError(locked bool, err error) error {
 	if !locked {
 		s.parent.Lock()
 		defer s.parent.Unlock()
 	}
 	locked = true
 	if s.closed {
+		return nil
+	}
+	if s.remoteEndPending && err == nil {
 		return nil
 	}
 	s.closed = true
@@ -198,6 +251,10 @@ func (s *Session) Close(locked bool) error {
 		XUDPManager.Unlock()
 	}
 	s.parent.Remove(locked, s.ID)
+	if s.lifecycleResult != nil {
+		s.lifecycleResult <- err
+		close(s.lifecycleResult)
+	}
 	return nil
 }
 

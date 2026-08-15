@@ -12,6 +12,7 @@ import (
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
+	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/common/signal/done"
 	"github.com/xtls/xray-core/common/task"
@@ -148,7 +149,7 @@ func (f *DialingWorkerFactory) Create() (*ClientWorker, error) {
 		return nil, err
 	}
 
-	go func(p proxy.Outbound, d internet.Dialer, c common.Closable) {
+	go func(p proxy.Outbound, d internet.Dialer, c *ClientWorker) {
 		outbounds := []*session.Outbound{{
 			Target: net.TCPDestination(muxCoolAddress, muxCoolPort),
 		}}
@@ -161,9 +162,9 @@ func (f *DialingWorkerFactory) Create() (*ClientWorker, error) {
 				errors.LogInfoInner(ctx, errP, "failed to handler mux client connection")
 			}
 		}
-		common.Must(c.Close())
+		common.Must(c.closeWithError(errMuxWorkerTerminated))
 		cancel()
-	}(f.Proxy, f.Dialer, c.done)
+	}(f.Proxy, f.Dialer, c)
 
 	return c, nil
 }
@@ -179,11 +180,16 @@ type ClientWorker struct {
 	done           *done.Instance
 	timer          *time.Ticker
 	strategy       ClientStrategy
+	closeMu        sync.Mutex
+	closeSet       bool
+	closeErr       error
 }
 
 var (
-	muxCoolAddress = net.DomainAddress("v1.mux.cool")
-	muxCoolPort    = net.Port(9527)
+	muxCoolAddress         = net.DomainAddress("v1.mux.cool")
+	muxCoolPort            = net.Port(9527)
+	errMuxWorkerTerminated = goerrors.New("mux client worker terminated before logical session completed")
+	errMuxSessionFailed    = goerrors.New("mux logical session failed")
 )
 
 // NewClientWorker creates a new mux.Client.
@@ -220,7 +226,26 @@ func (m *ClientWorker) WaitClosed() <-chan struct{} {
 }
 
 func (m *ClientWorker) Close() error {
+	return m.closeWithError(context.Canceled)
+}
+
+func (m *ClientWorker) closeWithError(err error) error {
+	m.closeMu.Lock()
+	if !m.closeSet {
+		m.closeSet = true
+		m.closeErr = err
+	}
+	m.closeMu.Unlock()
 	return m.done.Close()
+}
+
+func (m *ClientWorker) terminalError() error {
+	m.closeMu.Lock()
+	defer m.closeMu.Unlock()
+	if !m.closeSet {
+		return errMuxWorkerTerminated
+	}
+	return m.closeErr
 }
 
 func (m *ClientWorker) monitor() {
@@ -231,13 +256,13 @@ func (m *ClientWorker) monitor() {
 		checkCount := m.sessionManager.Count()
 		select {
 		case <-m.done.Wait():
-			m.sessionManager.Close()
+			m.sessionManager.closeWithError(m.terminalError())
 			common.Interrupt(m.link.Writer)
 			common.Interrupt(m.link.Reader)
 			return
 		case <-m.timer.C:
 			if m.sessionManager.CloseIfNoSessionAndIdle(checkSize, checkCount) {
-				common.Must(m.done.Close())
+				common.Must(m.closeWithError(nil))
 			}
 		}
 	}
@@ -269,19 +294,33 @@ func fetchInput(ctx context.Context, s *Session, output buf.Writer) {
 		inbound = session.InboundFromContext(ctx)
 	}
 	writer := NewWriter(s.ID, ob.Target, output, transferType, xudp.GetGlobalID(ctx), inbound)
-	defer s.Close(false)
-	defer writer.Close()
+	var sessionErr error
+	defer func() {
+		if err := writer.Close(); err != nil {
+			errors.LogInfoInner(ctx, err, "failed to write mux session end")
+			if ctx.Err() == nil {
+				sessionErr = errMuxSessionFailed
+			}
+		}
+		s.closeWithError(false, sessionErr)
+	}()
 
 	errors.LogInfo(ctx, "dispatching request to ", ob.Target)
 	if err := writeFirstPayload(s.input, writer); err != nil {
 		errors.LogInfoInner(ctx, err, "failed to write first payload")
 		writer.hasError = true
+		if ctx.Err() == nil {
+			sessionErr = errMuxSessionFailed
+		}
 		return
 	}
 
 	if err := buf.Copy(s.input, writer); err != nil {
 		errors.LogInfoInner(ctx, err, "failed to fetch all input")
 		writer.hasError = true
+		if ctx.Err() == nil {
+			sessionErr = errMuxSessionFailed
+		}
 		return
 	}
 }
@@ -318,8 +357,20 @@ func (m *ClientWorker) Dispatch(ctx context.Context, link *transport.Link) bool 
 	if s == nil {
 		return false
 	}
-	s.input = link.Reader
-	s.output = link.Writer
+	lifecycle, bound := s.bind(link.Reader, link.Writer, session.OutboundLifecycleTracked(ctx))
+	if !bound {
+		return false
+	}
+	if lifecycle != nil {
+		session.SubmitOutboundLifecycleToOriginator(ctx, lifecycle)
+		go func() {
+			select {
+			case <-ctx.Done():
+				s.closeWithError(false, context.Canceled)
+			case <-s.done.Wait():
+			}
+		}()
+	}
 	go fetchInput(ctx, s, m.link.Writer)
 	if _, ok := link.Reader.(*pipe.Reader); !ok {
 		select {
@@ -353,16 +404,18 @@ func (m *ClientWorker) handleStatusKeep(meta *FrameMetadata, reader *buf.Buffere
 	if !found {
 		// Notify remote peer to close this session.
 		closingWriter := NewResponseWriter(meta.SessionID, m.link.Writer, protocol.TransferTypeStream)
-		closingWriter.Close()
-
-		return buf.Copy(NewStreamReader(reader), buf.Discard)
+		closeErr := closingWriter.Close()
+		if err := buf.Copy(NewStreamReader(reader), buf.Discard); err != nil {
+			return err
+		}
+		return closeErr
 	}
 
 	rr := s.NewReader(reader, &meta.Target)
 	err := buf.Copy(rr, s.output)
 	if err != nil && buf.IsWriteError(err) {
 		errors.LogInfoInner(context.Background(), err, "failed to write to downstream. closing session ", s.ID)
-		s.Close(false)
+		s.closeWithError(false, errMuxSessionFailed)
 		return buf.Copy(rr, buf.Discard)
 	}
 
@@ -370,18 +423,48 @@ func (m *ClientWorker) handleStatusKeep(meta *FrameMetadata, reader *buf.Buffere
 }
 
 func (m *ClientWorker) handleStatusEnd(meta *FrameMetadata, reader *buf.BufferedReader) error {
-	if s, found := m.sessionManager.Get(meta.SessionID); found {
-		s.Close(false)
+	s, found := m.sessionManager.Get(meta.SessionID)
+	var reserved, tracked bool
+	if found {
+		if meta.Option.Has(OptionError) {
+			s.closeWithError(false, errMuxSessionFailed)
+		} else {
+			reserved, tracked = s.reserveRemoteEnd()
+			if !tracked {
+				s.Close(false)
+			}
+		}
 	}
+
+	var payloadErr error
 	if meta.Option.Has(OptionData) {
-		return buf.Copy(NewStreamReader(reader), buf.Discard)
+		payloadErr = discardFrameData(reader)
 	}
-	return nil
+
+	var sessionErr error
+	if payloadErr != nil {
+		sessionErr = errMuxSessionFailed
+	}
+	if reserved {
+		s.finishRemoteEnd(sessionErr)
+	} else if found && tracked {
+		s.closeWithError(false, sessionErr)
+	}
+	return payloadErr
+}
+
+func discardFrameData(reader *buf.BufferedReader) error {
+	size, err := serial.ReadUint16(reader)
+	if err != nil {
+		return err
+	}
+	_, err = io.CopyN(buf.DiscardBytes, reader, int64(size))
+	return err
 }
 
 func (m *ClientWorker) fetchOutput() {
 	defer func() {
-		common.Must(m.done.Close())
+		common.Must(m.closeWithError(errMuxWorkerTerminated))
 	}()
 
 	reader := &buf.BufferedReader{Reader: m.link.Reader}

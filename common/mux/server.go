@@ -115,7 +115,9 @@ func handle(ctx context.Context, s *Session, output buf.Writer) {
 		writer.hasError = true
 	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		errors.LogInfoInner(ctx, err, "failed to write mux session end")
+	}
 	s.Close(false)
 }
 
@@ -306,9 +308,11 @@ func (w *ServerWorker) handleStatusKeep(meta *FrameMetadata, reader *buf.Buffere
 	if !found {
 		// Notify remote peer to close this session.
 		closingWriter := NewResponseWriter(meta.SessionID, w.link.Writer, protocol.TransferTypeStream)
-		closingWriter.Close()
-
-		return buf.Copy(NewStreamReader(reader), buf.Discard)
+		closeErr := closingWriter.Close()
+		if err := buf.Copy(NewStreamReader(reader), buf.Discard); err != nil {
+			return err
+		}
+		return closeErr
 	}
 
 	rr := s.NewReader(reader, &meta.Target)
@@ -328,7 +332,7 @@ func (w *ServerWorker) handleStatusEnd(meta *FrameMetadata, reader *buf.Buffered
 		s.Close(false)
 	}
 	if meta.Option.Has(OptionData) {
-		return buf.Copy(NewStreamReader(reader), buf.Discard)
+		return discardFrameData(reader)
 	}
 	return nil
 }
